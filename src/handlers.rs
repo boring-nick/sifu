@@ -1,7 +1,8 @@
 use crate::error::Error;
 use axum::{
     extract::{ContentLengthLimit, Host, Multipart, Path},
-    response::Html,
+    http::{header::CONTENT_TYPE, HeaderMap},
+    response::{Html, IntoResponse},
     Extension,
 };
 use futures::StreamExt;
@@ -24,7 +25,7 @@ pub async fn index() -> Html<&'static str> {
 pub async fn view(
     Path(full_file_name): Path<String>,
     storage_folder: Extension<PathBuf>,
-) -> Result<Vec<u8>, Error> {
+) -> Result<impl IntoResponse, Error> {
     let file_name = full_file_name
         .split_once('.')
         .map_or(full_file_name.as_str(), |(name, _)| name);
@@ -42,7 +43,13 @@ pub async fn view(
 
     file.read_to_end(&mut buf).await?;
 
-    Ok(buf)
+    let mut headers = HeaderMap::new();
+
+    if let Some(info) = infer::get(&buf) {
+        headers.insert(CONTENT_TYPE, info.mime_type().parse().unwrap());
+    }
+
+    Ok((headers, buf))
 }
 
 pub async fn upload(
