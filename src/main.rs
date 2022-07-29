@@ -3,6 +3,7 @@ mod error;
 mod handlers;
 mod hash_storage;
 mod middleware;
+mod response;
 
 use crate::config::{AuthConfig, Config};
 use crate::hash_storage::HashStorage;
@@ -24,13 +25,19 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::init_from_env().context("Failed to load config")?;
 
-    let auth_config = if config.disable_auth {
-        AuthConfig::Disabled
+    if config.enable_auth {
+        info!("Auth enabled");
     } else {
+        info!("Auth disabled");
+    }
+
+    let auth_config = if config.enable_auth {
         AuthConfig::Enabled {
             username: config.basic_auth_username,
             password: config.basic_auth_password,
         }
+    } else {
+        AuthConfig::Disabled
     };
 
     let storage_folder = PathBuf::from(config.storage_folder);

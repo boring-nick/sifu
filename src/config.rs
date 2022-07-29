@@ -11,8 +11,8 @@ pub struct Config {
     #[envconfig(from = "BASIC_AUTH_PASSWORD", default = "")]
     pub basic_auth_password: String,
 
-    #[envconfig(from = "DISABLE_AUTH", default = "true")]
-    pub disable_auth: bool,
+    #[envconfig(from = "ENABLE_AUTH", default = "false")]
+    pub enable_auth: bool,
 
     #[envconfig(from = "UPLOADS_FOLDER", default = "./uploads")]
     pub storage_folder: String,

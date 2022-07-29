@@ -1,9 +1,9 @@
-use crate::{error::Error, hash_storage::HashStorage};
+use crate::{error::Error, hash_storage::HashStorage, response::UploadResponse};
 use axum::{
     extract::{ContentLengthLimit, Host, Multipart, Path},
     http::{header::CONTENT_TYPE, HeaderMap},
     response::{Html, IntoResponse},
-    Extension,
+    Extension, Json,
 };
 use dashmap::mapref::entry::Entry;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
@@ -58,7 +58,7 @@ pub async fn upload(
     Extension(hash_storage): Extension<HashStorage>,
     mut multipart: ContentLengthLimit<Multipart, MAX_CONTENT_LENGTH>,
     host: Host,
-) -> Result<String, Error> {
+) -> Result<Json<UploadResponse>, Error> {
     // This can't read `hashes.json` since extensions are stripped
     let (file_name, path) = loop {
         let file_name = generate_filename();
@@ -80,24 +80,36 @@ pub async fn upload(
                 let existing_file = occupied.get();
                 trace!("Uploaded duplicate, reusing existing file {existing_file}");
 
-                let resulting_url = format!("{host}/{existing_file}", host = host.0);
-                Ok(resulting_url)
+                let upload_response = UploadResponse {
+                    full_url: format!("{host}/{existing_file}", host = host.0),
+                    file_name: existing_file.to_owned(),
+                };
+
+                Ok(Json(upload_response))
             }
             Entry::Vacant(vacant) => {
                 let mut f = File::create(path).await?;
                 f.write_all(&data).await?;
 
-                let resulting_url = format!("{host}/{file_name}", host = host.0);
                 vacant.insert(file_name.clone());
 
-                let hash_storage = hash_storage.clone();
-                tokio::spawn(async move {
-                    if let Err(err) = hash_storage.write_entry(&hash, &file_name).await {
-                        error!("Could not save hash to storage: {err}");
-                    }
-                });
+                {
+                    let file_name = file_name.clone();
+                    let hash_storage = hash_storage.clone();
+                    tokio::spawn(async move {
+                        if let Err(err) = hash_storage.write_entry(&hash, &file_name).await {
+                            error!("Could not save hash to storage: {err}");
+                        }
+                    });
+                }
 
-                Ok(resulting_url)
+                let full_url = format!("{host}/{file_name}", host = host.0);
+                let upload_response = UploadResponse {
+                    full_url,
+                    file_name,
+                };
+
+                Ok(Json(upload_response))
             }
         }
     } else {

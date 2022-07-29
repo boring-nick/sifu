@@ -756,6 +756,7 @@ dependencies = [
  "futures",
  "infer",
  "rand",
+ "serde",
  "thiserror",
  "tokio",
  "tokio-util",
