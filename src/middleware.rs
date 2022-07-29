@@ -24,6 +24,7 @@ pub async fn auth<B>(req: Request<B>, next: Next<B>) -> Result<Response, AuthErr
                 .headers()
                 .get(AUTHORIZATION)
                 .and_then(|header| header.to_str().ok())
+                .and_then(|s| s.strip_prefix("Basic "))
                 .ok_or(AuthError::MissingAuth)?;
 
             let auth_data = base64::decode(auth_header)?;
@@ -33,7 +34,7 @@ pub async fn auth<B>(req: Request<B>, next: Next<B>) -> Result<Response, AuthErr
                 .split_once(':')
                 .ok_or(AuthError::InvalidCredentials)?;
 
-            if username == config_username && password == config_password {
+            if username.trim() == config_username && password.trim() == config_password {
                 Ok(next.run(req).await)
             } else {
                 Err(AuthError::InvalidCredentials)
