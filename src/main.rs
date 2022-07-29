@@ -1,9 +1,11 @@
 mod config;
 mod error;
 mod handlers;
+mod hash_storage;
 mod middleware;
 
 use crate::config::{AuthConfig, Config};
+use crate::hash_storage::HashStorage;
 use anyhow::anyhow;
 use anyhow::Context;
 use axum::{routing::get, Extension, Router};
@@ -32,12 +34,16 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let storage_folder = PathBuf::from(config.storage_folder);
-
     if !storage_folder.exists() {
         return Err(anyhow!(
             "Provided storage folder {storage_folder:?} doesn't exist",
         ));
     }
+
+    let hash_filename = storage_folder.join(hash_storage::FILENAME);
+    let hash_storage = HashStorage::new(hash_filename)
+        .await
+        .context("Could not load token storage")?;
 
     let app = Router::new()
         .route(
@@ -48,7 +54,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/:file_name", get(handlers::view))
         .layer(Extension(auth_config))
-        .layer(Extension(storage_folder));
+        .layer(Extension(storage_folder))
+        .layer(Extension(hash_storage));
 
     info!("Listening on {}", config.listen_address);
 
