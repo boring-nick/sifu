@@ -75,7 +75,7 @@ pub async fn upload(
 
         let hash = blake3::hash(&data);
 
-        match hash_storage.map.entry(hash.to_string()) {
+        match hash_storage.map.entry(hash.clone()) {
             Entry::Occupied(occupied) => {
                 let existing_file = occupied.get();
                 trace!("Uploaded duplicate, reusing existing file {existing_file}");
@@ -88,12 +88,12 @@ pub async fn upload(
                 f.write_all(&data).await?;
 
                 let resulting_url = format!("{host}/{file_name}", host = host.0);
-                vacant.insert(file_name);
+                vacant.insert(file_name.clone());
 
                 let hash_storage = hash_storage.clone();
                 tokio::spawn(async move {
-                    if let Err(err) = hash_storage.save().await {
-                        error!("Could not save hash storage: {err}");
+                    if let Err(err) = hash_storage.write_entry(&hash, &file_name).await {
+                        error!("Could not save hash to storage: {err}");
                     }
                 });
 

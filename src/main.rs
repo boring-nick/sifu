@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     let hash_filename = storage_folder.join(hash_storage::FILENAME);
     let hash_storage = HashStorage::new(hash_filename)
         .await
-        .context("Could not load token storage")?;
+        .context("could not load token storage")?;
 
     let app = Router::new()
         .route(
@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
         &config
             .listen_address
             .parse()
-            .context("Invalid listen address")?,
+            .context("invalid listen address")?,
     )
     .serve(app.into_make_service())
     .await?;
